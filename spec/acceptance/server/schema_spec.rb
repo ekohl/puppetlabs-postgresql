@@ -3,11 +3,6 @@
 require 'spec_helper_acceptance'
 
 describe 'postgresql::server::schema:' do
-  let(:version) do
-    if os[:family] == 'redhat' && os[:release].start_with?('5')
-      '8.1'
-    end
-  end
   let(:pp) do
     <<-MANIFEST.unindent
       $db = 'schema_test'
@@ -31,19 +26,12 @@ describe 'postgresql::server::schema:' do
         require => Postgresql::Server::Role[$user],
       }
 
-      # Lets setup the base rules
-      $local_auth_option = $version ? {
-        '8.1'   => 'sameuser',
-        default => undef,
-      }
-
       # Create a rule for the user
       postgresql::server::pg_hba_rule { "allow ${user}":
         type        => 'local',
         database    => $db,
         user        => $user,
         auth_method => 'ident',
-        auth_option => $local_auth_option,
         order       => 1,
       }
 

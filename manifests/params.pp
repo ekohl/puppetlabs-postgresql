@@ -102,15 +102,7 @@ class postgresql::params inherits postgresql::globals {
         $python_package_name = pick($python_package_name, 'python-psycopg2')
       }
 
-      if $postgresql::globals::postgis_package_name {
-        $postgis_package_name = $postgresql::globals::postgis_package_name
-      } elsif $facts['os']['release']['major'] == '5' {
-        $postgis_package_name = 'postgis'
-      } elsif $postgis_version and versioncmp($postgis_version, '2') < 0 {
-        $postgis_package_name = "postgis${package_version}"
-      } else {
-        $postgis_package_name = "postgis2_${package_version}"
-      }
+      $postgis_package_name = pick($postgresql::globals::postgis_package_name, "postgis2_${package_version}")
     }
 
     'Archlinux': {

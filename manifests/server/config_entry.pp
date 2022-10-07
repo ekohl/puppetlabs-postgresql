@@ -92,7 +92,7 @@ define postgresql::server::config_entry (
   }
 
   # We have to handle ports and the data directory in a weird and
-  # special way.  On early Debian and Ubuntu and RHEL we have to ensure
+  # special way.  On early Debian and Ubuntu we have to ensure
   # we stop the service completely. On RHEL 7 we either have to create
   # a systemd override for the port or update the sysconfig file, but this
   # is managed for us in postgresql::server::config.
@@ -104,47 +104,6 @@ define postgresql::server::config_entry (
         unless  => "grep \"data_directory = '${value}'\" ${postgresql::server::postgresql_conf_path}",
         path    => '/usr/sbin:/sbin:/bin:/usr/bin:/usr/local/bin',
         before  => Postgresql_conf[$name],
-      }
-    }
-  } elsif $facts['os']['family'] == 'RedHat' and versioncmp($facts['os']['release']['major'], '7') < 0 {
-    if $name == 'port' {
-      # We need to force postgresql to stop before updating the port
-      # because puppet becomes confused and is unable to manage the
-      # service appropriately.
-      exec { "postgresql_stop_${name}":
-        command => "service ${postgresql::server::service_name} stop",
-        onlyif  => "service ${postgresql::server::service_name} status",
-        unless  => "grep 'PGPORT=${value}' /etc/sysconfig/pgsql/postgresql",
-        path    => '/sbin:/bin:/usr/bin:/usr/local/bin',
-        require => File['/etc/sysconfig/pgsql/postgresql'],
-      }
-      -> augeas { 'override PGPORT in /etc/sysconfig/pgsql/postgresql':
-        lens    => 'Shellvars.lns',
-        incl    => '/etc/sysconfig/pgsql/postgresql',
-        context => '/files/etc/sysconfig/pgsql/postgresql',
-        changes => "set PGPORT ${value}",
-        require => File['/etc/sysconfig/pgsql/postgresql'],
-        notify  => Class['postgresql::server::service'],
-        before  => Class['postgresql::server::reload'],
-      }
-    } elsif $name == 'data_directory' {
-      # We need to force postgresql to stop before updating the data directory
-      # otherwise init script breaks
-      exec { "postgresql_${name}":
-        command => "service ${postgresql::server::service_name} stop",
-        onlyif  => "service ${postgresql::server::service_name} status",
-        unless  => "grep 'PGDATA=${value}' /etc/sysconfig/pgsql/postgresql",
-        path    => '/sbin:/bin:/usr/bin:/usr/local/bin',
-        require => File['/etc/sysconfig/pgsql/postgresql'],
-      }
-      -> augeas { 'override PGDATA in /etc/sysconfig/pgsql/postgresql':
-        lens    => 'Shellvars.lns',
-        incl    => '/etc/sysconfig/pgsql/postgresql',
-        context => '/files/etc/sysconfig/pgsql/postgresql',
-        changes => "set PGDATA ${value}",
-        require => File['/etc/sysconfig/pgsql/postgresql'],
-        notify  => Class['postgresql::server::service'],
-        before  => Class['postgresql::server::reload'],
       }
     }
   }
