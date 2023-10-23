@@ -4,30 +4,35 @@ require 'spec_helper'
 provider_class = Puppet::Type.type(:postgresql_conf).provider(:ruby)
 
 describe provider_class do
-  let(:resource) { Puppet::Type.type(:postgresql_conf).new(name: 'foo', value: 'bar') }
+  let(:resource) { Puppet::Type.type(:postgresql_conf).new(name: 'foo', key: 'foo', value: 'bar', target: '/tmp/foo.conf') }
   let(:provider) { resource.provider }
 
-  before(:each) do
-    allow(provider).to receive(:file_path).and_return('/tmp/foo')
-    allow(provider).to receive(:read_file).and_return('foo = bar')
-    allow(provider).to receive(:write_file).and_return(true)
-  end
-  # rubocop:enable RSpec/ReceiveMessages
+  describe 'duplicate keys in postgresql.conf' do
+    it 'with empty config' do
+      allow(provider_class).to receive(:parse_config).with('/tmp/foo.conf').and_return([])
 
-  it 'has a method parse_config' do
-    expect(provider).to respond_to(:parse_config)
-  end
+      provider_class.prefetch({resource.name => resource})
 
-  it 'has a method delete_header' do
-    expect(provider).to respond_to(:delete_header)
-  end
+      expect(provider.exists?).to be false
+      expect(provider_class).to have_received(:parse_config)
+    end
 
-  it 'has a method add_header' do
-    expect(provider).to respond_to(:add_header)
-  end
+    it 'with existing key' do
+      allow(provider_class).to receive(:parse_config).with('/tmp/foo.conf').and_return([{ key: 'foo', value: 'incorrect' }])
 
-  it 'has a method exists?' do
-    expect(provider).to respond_to(:exists?)
+      provider_class.prefetch({resource.name => resource})
+
+      expect(provider.exists?).to be true
+      expect(provider_class).to have_received(:parse_config)
+    end
+
+    it 'raises an exception' do
+      expect(provider_class).to receive(:parse_config).with('/tmp/foo.conf').and_return([{ key: 'foo', line: 1 }, { key: 'foo', line: 2 }])
+
+      provider_class.prefetch({resource.name => resource})
+
+      expect { provider.exists? }.to raise_error(Puppet::Error, 'found multiple config items of foo found, please fix this')
+    end
   end
 
   it 'has a method create' do
